@@ -8,8 +8,7 @@
  * 2. OR use native useReality hook (recommended)
  */
 
-import { useReality } from '@rootlodge/reality/react';
-import { RealityEventSource } from '@rootlodge/reality/compat';
+import { useReality, RealityEventSource, type EventSourceOptions } from '@rootlodge/reality';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface StockPrice {
@@ -41,11 +40,12 @@ export function useSSECompatStocks() {
     try {
       // RealityEventSource is a drop-in replacement for EventSource
       // Same API, but uses short-lived HTTP internally
-      const es = new RealityEventSource('http://localhost:3000/events', {
+      const options: EventSourceOptions = {
         // Reality-specific options
-        realityEndpoint: 'http://localhost:3000/reality/sync',
+        realityServers: ['http://localhost:3000'],
         syncInterval: 1000, // Check for updates every second
-      });
+      };
+      const es = new RealityEventSource('http://localhost:3000/api/stocks', options);
       eventSourceRef.current = es;
 
       es.onopen = () => {
@@ -105,10 +105,15 @@ export function useRealityStocks() {
       // Stale time before background refresh
       staleTime: 500,
       
-      // Dedupe rapid requests
-      dedupeInterval: 100,
+      // Refetch on focus
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }
   );
+
+  const handleRefresh = useCallback(async () => {
+    await sync('interaction');
+  }, [sync]);
 
   return {
     stocks: stocks ?? [],
@@ -116,7 +121,7 @@ export function useRealityStocks() {
     isLoading,
     isSyncing,
     error,
-    refresh: sync,
+    refresh: handleRefresh,
   };
 }
 
@@ -138,7 +143,7 @@ export function StockTicker() {
       <div className="connection-status">
         <span>{isConnected ? '🟢 Connected (Reality)' : '🔴 Disconnected'}</span>
         {isSyncing && <span className="syncing">Syncing...</span>}
-        <button onClick={refresh} disabled={isSyncing}>
+        <button onClick={() => refresh()} disabled={isSyncing}>
           Refresh
         </button>
       </div>

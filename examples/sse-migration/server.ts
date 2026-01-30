@@ -12,8 +12,7 @@
  * 5. Built-in mesh coordination for multi-server setups
  */
 
-import { serve } from 'bun';
-import { RealityServer, MemoryStorage, createFetchHandler } from '@rootlodge/reality-server';
+import { createRealityServer, createHash } from '@rootlodge/reality-server';
 
 interface StockPrice {
   symbol: string;
@@ -23,14 +22,9 @@ interface StockPrice {
 }
 
 // Initialize Reality server - stateless, mesh-aware
-const storage = new MemoryStorage();
-const server = new RealityServer({
-  storage,
+const server = createRealityServer({
   serverId: `stock-server-${Date.now()}`,
 });
-
-// Create fetch handler
-const realityHandler = createFetchHandler(server);
 
 // Simulated stock data
 const stocks: Record<string, StockPrice> = {
@@ -55,14 +49,14 @@ async function updatePrices(): Promise<void> {
   for (const symbol of Object.keys(stocks)) {
     const stock = stocks[symbol];
     // Hash is based on price and timestamp to detect changes
-    const hash = `${stock.price}-${stock.timestamp}`;
+    const hash = createHash(`${stock.price}-${stock.timestamp}`);
     await server.updateNode(`stocks:${symbol}`, hash);
   }
   
   // Also update an "all stocks" aggregate node
-  const allHash = Object.values(stocks)
+  const allHash = createHash(Object.values(stocks)
     .map(s => `${s.symbol}:${s.price}`)
-    .join('|');
+    .join('|'));
   await server.updateNode('stocks:all', allHash);
 }
 
@@ -72,7 +66,7 @@ setInterval(updatePrices, 1000);
 // Initial update
 updatePrices();
 
-serve({
+Bun.serve({
   port: 3000,
   async fetch(request) {
     const url = new URL(request.url);
@@ -90,7 +84,7 @@ serve({
     
     // Reality sync endpoint - handles all real-time coordination
     if (url.pathname === '/reality/sync') {
-      const response = await realityHandler(request);
+      const response = await server.handleRequest(request);
       // Add CORS headers
       const headers = new Headers(response.headers);
       Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
@@ -126,29 +120,14 @@ serve({
       });
     }
     
-    // SSE compatibility endpoint - for gradual migration
-    // Clients can use RealityEventSource as drop-in EventSource replacement
-    if (url.pathname === '/events') {
-      // This endpoint provides SSE-like behavior using Reality internally
-      // Useful during migration period
-      const compatResponse = await server.handleSSECompat(request, {
-        keys: ['stocks:all'],
-        heartbeatInterval: 30000,
-      });
-      const headers = new Headers(compatResponse.headers);
-      Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
-      return new Response(compatResponse.body, {
-        status: compatResponse.status,
-        headers,
-      });
-    }
-    
     // Stats endpoint
     if (url.pathname === '/stats') {
+      const stats = server.getStats();
       return new Response(JSON.stringify({
         activeConnections: 0, // Reality has NO persistent connections!
-        totalSyncsHandled: await server.getStats().then(s => s.totalSyncs),
-        meshPeers: await server.getMeshPeers().then(p => p.length),
+        serverId: stats.serverId,
+        uptime: stats.uptime,
+        mesh: stats.mesh,
         memoryUsage: process.memoryUsage(),
         note: 'Memory usage stays constant regardless of client count',
       }), {
