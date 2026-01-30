@@ -93,14 +93,60 @@ export const SyncResponseSchema = z.object({
 export type SyncResponse = z.infer<typeof SyncResponseSchema>;
 
 // ============================================================================
+// Execution & Persistence Modes
+// ============================================================================
+
+/**
+ * Persistence mode for Reality
+ * - 'none': No database required, in-memory only
+ * - 'advisory': Optional DB adapters for invalidation hints
+ * - 'external': Application manages its own persistence
+ */
+export const RealityPersistenceModeSchema = z.enum(['none', 'advisory', 'external']);
+export type RealityPersistenceMode = z.infer<typeof RealityPersistenceModeSchema>;
+
+/**
+ * Execution mode for Reality
+ * - 'client': Browser/client-side, HTTP to external servers
+ * - 'ssr-embedded': SSR with in-process server (TanStack/Vite)
+ * - 'server-external': Dedicated server mode
+ * - 'auto': Automatically detect based on environment
+ */
+export const RealityExecutionModeSchema = z.enum(['client', 'ssr-embedded', 'server-external', 'auto']);
+export type RealityExecutionMode = z.infer<typeof RealityExecutionModeSchema>;
+
+// ============================================================================
+// Transport Interface
+// ============================================================================
+
+/**
+ * Transport abstraction for Reality client
+ * Allows switching between HTTP, embedded, or custom transports
+ */
+export interface RealityTransport {
+  /** Execute a sync request */
+  sync(request: SyncRequest): Promise<SyncResponse>;
+  /** Invalidate keys (for embedded/SSR mode) */
+  invalidate?(keys: string[]): Promise<void>;
+  /** Check if transport is available */
+  isAvailable(): boolean;
+  /** Get transport type identifier */
+  getType(): 'http' | 'embedded' | 'custom';
+}
+
+// ============================================================================
 // Reality Client Options
 // ============================================================================
 
 export const RealityOptionsSchema = z.object({
-  /** Base URL(s) of Reality server(s) */
-  servers: z.array(z.string().url()).min(1),
-  /** Operating mode */
+  /** Base URL(s) of Reality server(s) - optional for embedded mode */
+  servers: z.array(z.string().url()).default([]),
+  /** Operating mode (compatibility) */
   mode: RealityModeSchema.default('native'),
+  /** Execution mode - where Reality runs */
+  executionMode: RealityExecutionModeSchema.default('auto'),
+  /** Custom transport (overrides executionMode) */
+  transport: z.custom<RealityTransport>().optional(),
   /** Client identifier (auto-generated if not provided) */
   clientId: z.string().uuid().optional(),
   /** Initial known versions */
@@ -263,6 +309,33 @@ export interface PollingConfig {
   maxInterval: number;
   /** Backoff multiplier on error */
   backoffMultiplier: number;
+}
+
+// ============================================================================
+// Invalidation Adapter Interface
+// ============================================================================
+
+/**
+ * Invalidation adapter for advisory database integration
+ * Reality does NOT own your data - this is optional!
+ */
+export interface RealityInvalidationAdapter {
+  /** Hook called when keys should be invalidated */
+  onInvalidate(keys: string[]): Promise<void>;
+  /** Hook called before a transaction (for auto-invalidation) */
+  beforeTransaction?<T>(fn: () => Promise<T>): Promise<T>;
+  /** Hook called after a transaction (for auto-invalidation) */
+  afterTransaction?(affectedKeys: string[]): Promise<void>;
+}
+
+/**
+ * Configuration for invalidation behavior
+ */
+export interface InvalidationConfig {
+  /** Invalidation adapter instance */
+  adapter?: RealityInvalidationAdapter;
+  /** Persistence mode */
+  mode?: RealityPersistenceMode;
 }
 
 // ============================================================================
