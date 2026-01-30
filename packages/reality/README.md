@@ -90,6 +90,28 @@ await server.updateNode('chat:room:general', hashOfMessages);
 
 ## Why Reality?
 
+### Reality Does NOT Own Your Data
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  Reality tracks CHANGE METADATA only:                                  │
+│  - version numbers                                                     │
+│  - content hashes                                                      │
+│  - timestamps                                                          │
+│                                                                         │
+│  YOUR APPLICATION stores the actual data.                              │
+│  Reality tells clients WHEN to refetch, not WHAT to fetch.             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+This means:
+- ✅ No database required for Reality itself
+- ✅ Use any database you want for your data
+- ✅ Optional adapters for auto-invalidation
+- ✅ Full control over your data layer
+
 ### The Problem
 
 | Technology | Issues |
@@ -138,6 +160,109 @@ Works with React, React Native, Node.js, Bun, Deno, Edge functions.
 
 ### ✅ Migration Path
 Drop-in `EventSource` and polling replacements for gradual migration.
+
+### ✅ SSR / TanStack / Vite Support
+Works seamlessly with server-side rendering and modern meta-frameworks.
+
+## SSR / TanStack / Vite Integration
+
+Reality fully supports SSR with embedded server mode:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          EXECUTION MODES                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  CLIENT MODE                      SSR-EMBEDDED MODE                    │
+│  ─────────────                    ─────────────────                    │
+│  ┌────────┐                       ┌────────────────┐                   │
+│  │ Client │ ──HTTP──► Server      │ SSR Process    │                   │
+│  └────────┘                       │ ┌────────────┐ │                   │
+│                                   │ │ Embedded   │ │                   │
+│                                   │ │ Reality    │ │ ──► Same Process  │
+│                                   │ └────────────┘ │                   │
+│                                   └────────────────┘                   │
+│                                                                         │
+│  SERVER-EXTERNAL MODE             AUTO MODE                            │
+│  ────────────────────             ─────────                            │
+│  Dedicated Reality servers        Detects environment and              │
+│  for production scaling           selects appropriate mode             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### TanStack Start / Router
+
+```typescript
+// loader.ts
+import { createRealityTanStackAdapter } from '@rootlodge/reality';
+
+export const loader = async () => {
+  const reality = createRealityTanStackAdapter({
+    keys: ['chat:room:123', 'user:profile'],
+  });
+  
+  const state = await reality.prefetch();
+  
+  return {
+    realityState: state,
+  };
+};
+
+// component.tsx
+function Chat({ realityState }) {
+  return (
+    <RealityProvider 
+      executionMode="auto"
+      hydrationState={realityState}
+    >
+      <ChatMessages />
+    </RealityProvider>
+  );
+}
+```
+
+### Vite SSR
+
+```typescript
+// entry-server.ts
+import { createEmbeddedRealityServer } from '@rootlodge/reality-server';
+import { registerEmbeddedServer } from '@rootlodge/reality';
+
+const embeddedServer = createEmbeddedRealityServer({
+  serverId: 'vite-ssr',
+});
+
+// Register for client to discover
+registerEmbeddedServer('vite-ssr', embeddedServer);
+
+export async function render(url: string) {
+  // Your SSR render logic
+  // Reality will auto-detect embedded mode
+}
+```
+
+### Execution Mode Configuration
+
+```typescript
+import { RealityClient } from '@rootlodge/reality';
+
+// Auto-detect (recommended)
+const client = new RealityClient({
+  executionMode: 'auto', // Detects SSR vs client automatically
+});
+
+// Explicit SSR embedded mode
+const client = new RealityClient({
+  executionMode: 'ssr-embedded',
+});
+
+// Explicit client mode with HTTP
+const client = new RealityClient({
+  executionMode: 'client',
+  servers: ['https://reality.example.com'],
+});
+```
 
 ## API Reference
 

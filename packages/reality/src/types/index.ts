@@ -132,6 +132,10 @@ export interface RealityTransport {
   isAvailable(): boolean;
   /** Get transport type identifier */
   getType(): 'http' | 'embedded' | 'custom';
+  /** Get server status (HTTP transport only) */
+  getServerStatus?(): Map<string, unknown>;
+  /** Clear all blacklists (HTTP transport only) */
+  clearAllBlacklists?(): void;
 }
 
 // ============================================================================

@@ -2,6 +2,12 @@
  * @rootlodge/reality-server - Reality Server
  * 
  * Main server class that brings together all components.
+ * 
+ * IMPORTANT: Reality does NOT own your data!
+ * - Storage is optional (defaults to in-memory)
+ * - Reality only tracks change metadata (version/hash)
+ * - Your application stores the actual payloads
+ * - DB adapters are optional helpers for invalidation
  */
 
 import type {
@@ -9,6 +15,7 @@ import type {
   ResolvedServerConfig,
   RealityStorage,
   RealityNodeMeta,
+  RealityInvalidationAdapter,
 } from './types';
 import { ServerConfigSchema } from './types';
 import { MemoryStorage } from './storage/memory';
@@ -25,6 +32,7 @@ interface RealityServerComponents {
   storage: RealityStorage;
   mesh: MeshCoordinator;
   redis?: RedisAccelerator;
+  invalidationAdapter?: RealityInvalidationAdapter;
   startTime: number;
 }
 
@@ -33,21 +41,26 @@ interface RealityServerComponents {
  * 
  * The main server class that coordinates storage, mesh, and HTTP handling.
  * 
+ * IMPORTANT: Reality does NOT own your data. It only tracks change metadata.
+ * Storage is optional - use in-memory for simple cases, or skip entirely
+ * and use external storage with advisory invalidation.
+ * 
  * @example
  * ```typescript
- * import { RealityServer } from '@rootlodge/reality-server';
- * 
+ * // Minimal setup - no database required!
  * const server = new RealityServer({
  *   serverId: 'server-1',
- *   port: 3000,
- *   peers: ['https://server-2.example.com', 'https://server-3.example.com'],
  * });
  * 
- * // Get the Fetch handler
- * const handler = server.getFetchHandler();
+ * // With mesh peers
+ * const server = new RealityServer({
+ *   serverId: 'server-1',
+ *   peers: ['https://server-2.example.com'],
+ * });
  * 
- * // Use with your framework of choice
- * Bun.serve({ port: 3000, fetch: handler });
+ * // Invalidate when your data changes
+ * await server.invalidate('chat:room:123');
+ * await server.invalidateMany(['user:42', 'feed:global']);
  * ```
  */
 export class RealityServer {
@@ -63,7 +76,7 @@ export class RealityServer {
 
     const resolvedConfig = parsed.data;
 
-    // Initialize storage
+    // Initialize storage (optional - defaults to memory)
     const storage = customStorage ?? new MemoryStorage();
 
     // Initialize mesh coordinator
@@ -90,6 +103,55 @@ export class RealityServer {
       startTime: this.components.startTime,
       debug: resolvedConfig.debug,
     };
+  }
+
+  /**
+   * Invalidate a single key
+   * Call this when your data changes - Reality will propagate the invalidation.
+   * 
+   * @param key - The key to invalidate (e.g., 'chat:room:123')
+   */
+  async invalidate(key: string): Promise<void> {
+    return this.invalidateMany([key]);
+  }
+
+  /**
+   * Invalidate multiple keys at once
+   * More efficient than calling invalidate() multiple times.
+   * 
+   * @param keys - Array of keys to invalidate
+   */
+  async invalidateMany(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      await this.components.storage.incrementVersion(key, '');
+    }
+    
+    // Update mesh
+    const maxVersion = await this.components.storage.getMaxVersion();
+    this.components.mesh.updateMaxVersion(maxVersion);
+
+    // Propagate via Redis if available
+    if (this.components.redis?.isConnected()) {
+      for (const key of keys) {
+        await this.components.redis.invalidateCache(key);
+      }
+      await this.components.redis.publishInvalidation(keys);
+    }
+
+    // Propagate to mesh peers
+    this.components.mesh.propagateInvalidation(keys);
+    
+    // Notify invalidation adapter if configured
+    if (this.components.invalidationAdapter) {
+      await this.components.invalidationAdapter.onInvalidate(keys);
+    }
+  }
+
+  /**
+   * Set invalidation adapter for database integration
+   */
+  setInvalidationAdapter(adapter: RealityInvalidationAdapter): void {
+    this.components.invalidationAdapter = adapter;
   }
 
   /**

@@ -4,50 +4,99 @@
 
 > Stateless HTTP handlers with mesh-aware coordination.
 
+## Reality Does NOT Own Your Data
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  ❌ Reality does NOT store your payloads                               │
+│  ❌ Reality does NOT require a database                                │
+│  ❌ Reality is NOT a data layer                                        │
+│                                                                         │
+│  ✅ Reality tracks change METADATA (version, hash)                     │
+│  ✅ Reality propagates INVALIDATION signals                            │
+│  ✅ Reality coordinates MESH of servers                                │
+│                                                                         │
+│  Your app stores data. Reality tells clients when to refetch.          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Installation
 
 ```bash
 npm install @rootlodge/reality-server
 ```
 
-## Quick Start
+## Quick Start (No Database Required!)
 
 ```typescript
-import { 
-  RealityServer, 
-  MemoryStorage, 
-  createFetchHandler,
-  createExpressAdapter 
-} from '@rootlodge/reality-server';
+import { RealityServer } from '@rootlodge/reality-server';
 
-// 1. Create storage adapter
-const storage = new MemoryStorage();
-
-// 2. Create server instance
+// That's it! No database needed.
 const server = new RealityServer({
-  storage,
-  serverId: 'server-1',           // Unique per instance
-  meshPeers: [],                  // Other server URLs for mesh
-  redis: undefined,               // Optional Redis for acceleration
+  serverId: 'server-1',
 });
 
-// 3. Create HTTP handler
-const handler = createFetchHandler(server);
+// When your data changes, invalidate the key
+await server.invalidate('chat:room:123');
 
-// 4. Mount on your framework
-// Fetch API (Bun, Deno, Cloudflare Workers)
+// Or invalidate multiple keys at once
+await server.invalidateMany(['user:42', 'feed:global']);
+
+// Mount the handler on your framework
+const handler = server.getFetchHandler();
 app.post('/reality/sync', handler);
-
-// Express/Fastify
-app.post('/reality/sync', createExpressAdapter(server));
-
-// 5. Update nodes when data changes
-await server.updateNode('chat:room:general', hashOfCurrentState);
 ```
 
-## Storage Adapters
+## Execution Modes
 
-### Memory Storage (Development)
+Reality supports three execution modes:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          EXECUTION MODES                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  SERVER-EXTERNAL (Default)        SSR-EMBEDDED                         │
+│  ────────────────────────         ────────────                         │
+│  ┌────────────────┐               ┌────────────────┐                   │
+│  │ Reality Server │               │ Your SSR App   │                   │
+│  │ ┌────────────┐ │               │ ┌────────────┐ │                   │
+│  │ │   HTTP     │ │◄── Requests   │ │  Embedded  │ │                   │
+│  │ │  Handler   │ │               │ │  Reality   │ │ ◄── In-process    │
+│  │ └────────────┘ │               │ └────────────┘ │                   │
+│  └────────────────┘               └────────────────┘                   │
+│                                                                         │
+│  Use for: Production, scaling     Use for: TanStack, Vite, Next.js    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Embedded Server for SSR
+
+```typescript
+import { createEmbeddedRealityServer } from '@rootlodge/reality-server';
+
+// Create embedded server for SSR
+const embedded = createEmbeddedRealityServer({
+  serverId: 'ssr-server',
+});
+
+// Handle sync requests directly (no HTTP)
+const response = await embedded.handleSync(request);
+
+// Invalidate when data changes
+await embedded.invalidate(['chat:room:123']);
+```
+
+## Optional Storage Adapters
+
+Storage is **OPTIONAL**. Use it only if you need to:
+- Persist metadata across restarts
+- Share state between multiple server instances
+
+### Memory Storage (Default)
 
 ```typescript
 import { MemoryStorage } from '@rootlodge/reality-server';
@@ -204,19 +253,75 @@ For multi-server deployments, servers gossip peer information:
 
 ```typescript
 const server1 = new RealityServer({
-  storage: storage1,
   serverId: 'server-1',
-  meshPeers: ['http://server-2:3000', 'http://server-3:3000'],
+  peers: ['http://server-2:3000', 'http://server-3:3000'],
 });
 
 const server2 = new RealityServer({
-  storage: storage2,
   serverId: 'server-2',
-  meshPeers: ['http://server-1:3000', 'http://server-3:3000'],
+  peers: ['http://server-1:3000', 'http://server-3:3000'],
 });
 ```
 
 Mesh info is piggybacked on normal requests - no additional connections needed.
+
+## Optional Invalidation Adapters
+
+Automatically invalidate Reality keys when your database changes:
+
+### Drizzle Auto-Invalidation
+
+```typescript
+import { 
+  RealityServer, 
+  createDrizzleInvalidationAdapter 
+} from '@rootlodge/reality-server';
+
+const reality = new RealityServer({ serverId: 'server-1' });
+
+const adapter = createDrizzleInvalidationAdapter({
+  db,
+  keyExtractor: (table, operation, data) => {
+    if (table === 'messages') {
+      return [`chat:room:${data.roomId}`];
+    }
+    return [];
+  },
+});
+
+reality.setInvalidationAdapter(adapter);
+```
+
+### Prisma Auto-Invalidation
+
+```typescript
+import { createPrismaInvalidationAdapter } from '@rootlodge/reality-server';
+
+const adapter = createPrismaInvalidationAdapter({
+  prisma,
+  keyExtractor: (model, operation, data) => {
+    if (model === 'Message') {
+      return [`chat:room:${data.roomId}`];
+    }
+    return [];
+  },
+});
+
+reality.setInvalidationAdapter(adapter);
+```
+
+### Callback Adapter
+
+```typescript
+import { createCallbackInvalidationAdapter } from '@rootlodge/reality-server';
+
+const adapter = createCallbackInvalidationAdapter({
+  onInvalidate: async (keys) => {
+    console.log('Invalidated:', keys);
+    // Custom logic: notify external systems, etc.
+  },
+});
+```
 
 ## Redis Acceleration (Optional)
 

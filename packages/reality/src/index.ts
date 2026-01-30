@@ -3,6 +3,11 @@
  * 
  * Socketless Real-Time Infrastructure
  * 
+ * IMPORTANT: Reality does NOT own your data!
+ * - Reality only tracks change metadata (version/hash)
+ * - Your application stores the actual payloads
+ * - Works without any database
+ * 
  * @packageDocumentation
  */
 
@@ -16,8 +21,20 @@ export * from './utils';
 export { RealityClient, createRealityClient } from './client/reality-client';
 export { SyncEngine } from './client/sync-engine';
 
-// Transport
-export { RealityTransport } from './transport/transport';
+// Transport abstraction
+export {
+  HttpTransport,
+  EmbeddedTransport,
+  SimpleEmbeddedServer,
+  createSimpleEmbeddedServer,
+  createAutoTransport,
+  registerEmbeddedServer,
+  unregisterEmbeddedServer,
+  getEmbeddedServer,
+  hasEmbeddedServer,
+  type ServerStatus,
+  type EmbeddedRealityServer,
+} from './transport';
 
 // React integration
 export {
@@ -45,6 +62,20 @@ export {
   useSyncOnMount,
   type UseSyncReturn,
 } from './react/use-sync';
+
+// SSR / TanStack support
+export {
+  TanStackRealityAdapter,
+  createRealityTanStackAdapter,
+  createSSRContext,
+  serializeRealityState,
+  deserializeRealityState,
+  isSSR,
+  isHydrated,
+  type TanStackAdapterConfig,
+  type TanStackRealityState,
+  type SSRContext,
+} from './ssr';
 
 // Compatibility layers
 export {

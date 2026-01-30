@@ -10,6 +10,7 @@ import type {
   SyncResponse,
   PeerHealth,
   ResolvedRealityOptions,
+  RealityTransport,
 } from '../types';
 import { SyncResponseSchema } from '../types';
 import { now, timeout } from '../utils/time';
@@ -29,9 +30,10 @@ export interface ServerStatus {
 }
 
 /**
- * Transport layer for Reality client
+ * HTTP Transport - communicates with external Reality servers via HTTP
+ * Implements the RealityTransport interface
  */
-export class RealityTransport {
+export class HttpTransport implements RealityTransport {
   private servers: Map<string, ServerStatus> = new Map();
   private options: ResolvedRealityOptions;
 
@@ -51,6 +53,20 @@ export class RealityTransport {
         blacklistedUntil: 0,
       });
     }
+  }
+
+  /**
+   * Check if HTTP transport is available
+   */
+  isAvailable(): boolean {
+    return this.servers.size > 0 && this.selectServers().length > 0;
+  }
+
+  /**
+   * Get transport type
+   */
+  getType(): 'http' | 'embedded' | 'custom' {
+    return 'http';
   }
 
   /**

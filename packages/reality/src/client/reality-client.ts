@@ -15,9 +15,12 @@ import type {
   RealityEventType,
   RealityEventHandler,
   MutationOptions,
+  RealityTransport,
+  RealityExecutionMode,
 } from '../types';
 import { RealityOptionsSchema } from '../types';
-import { RealityTransport } from '../transport/transport';
+import { HttpTransport } from '../transport/transport';
+import { EmbeddedTransport, hasEmbeddedServer } from '../transport/embedded';
 import { SyncEngine } from './sync-engine';
 import { generateUUID } from '../utils/uuid';
 import { now } from '../utils/time';
@@ -30,6 +33,61 @@ interface VisibilityState {
   isFocused: boolean;
   lastVisibleAt: number;
   lastFocusAt: number;
+}
+
+/**
+ * Detect execution mode based on environment
+ */
+function detectExecutionMode(): RealityExecutionMode {
+  // Check for embedded server first
+  if (hasEmbeddedServer()) {
+    return 'ssr-embedded';
+  }
+  
+  // Check if we're in a browser
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    return 'client';
+  }
+  
+  // Check for server-side hints
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    return 'ssr-embedded';
+  }
+  
+  return 'client';
+}
+
+/**
+ * Create transport based on execution mode
+ */
+function createTransport(options: ResolvedRealityOptions): RealityTransport {
+  // If custom transport is provided, use it
+  if (options.transport) {
+    return options.transport;
+  }
+  
+  const executionMode = options.executionMode === 'auto' 
+    ? detectExecutionMode() 
+    : options.executionMode;
+  
+  switch (executionMode) {
+    case 'ssr-embedded':
+      // Use embedded with HTTP fallback if servers are configured
+      if (options.servers.length > 0) {
+        return new EmbeddedTransport({
+          fallback: new HttpTransport(options),
+        });
+      }
+      return new EmbeddedTransport();
+      
+    case 'server-external':
+    case 'client':
+    default:
+      if (options.servers.length === 0) {
+        throw new Error('No servers configured and no embedded server available');
+      }
+      return new HttpTransport(options);
+  }
 }
 
 /**
@@ -55,8 +113,8 @@ export class RealityClient {
       clientId: parsed.data.clientId ?? generateUUID(),
     };
 
-    // Initialize transport
-    this.transport = new RealityTransport(this.options);
+    // Initialize transport based on execution mode
+    this.transport = createTransport(this.options);
 
     // Initialize sync engine
     this.syncEngine = new SyncEngine({
@@ -77,6 +135,13 @@ export class RealityClient {
 
     // Set up event listeners for browser/RN environments
     this.setupEventListeners();
+  }
+
+  /**
+   * Get the current transport type
+   */
+  getTransportType(): 'http' | 'embedded' | 'custom' {
+    return this.transport.getType();
   }
 
   /**
@@ -212,10 +277,10 @@ export class RealityClient {
   }
 
   /**
-   * Get server status
+   * Get server status (HTTP transport only)
    */
   getServerStatus() {
-    return this.transport.getServerStatus();
+    return this.transport.getServerStatus?.() ?? new Map();
   }
 
   /**
@@ -300,7 +365,7 @@ export class RealityClient {
     // Online/offline handling
     if (typeof window !== 'undefined' && 'navigator' in window) {
       const handleOnline = () => {
-        this.transport.clearAllBlacklists();
+        this.transport.clearAllBlacklists?.();
         this.syncAll('reconnect');
       };
 

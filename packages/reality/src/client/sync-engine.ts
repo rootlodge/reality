@@ -16,8 +16,8 @@ import type {
   RealityEvent,
   RealityEventHandler,
   RealityKeyOptions,
+  RealityTransport,
 } from '../types';
-import { RealityTransport } from '../transport/transport';
 import { now, debounce } from '../utils/time';
 import { hashEquals } from '../utils/hash';
 
