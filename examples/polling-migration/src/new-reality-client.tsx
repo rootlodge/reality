@@ -5,8 +5,7 @@
  * Visibly reduced network usage!
  */
 
-import { useReality, useMutation } from '@rootlodge/reality/react';
-import { createPollingAdapter } from '@rootlodge/reality/compat';
+import { useReality, useMutation, useRealityClient, createPollingAdapter, type PollingAdapterControl } from '@rootlodge/reality';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface Notification {
@@ -31,46 +30,47 @@ interface NotificationResponse {
  * 
  * Good for: Quick migration with minimal code changes
  */
-export function usePollingCompatNotifications(intervalMs: number = 2000) {
+export function usePollingCompatNotifications() {
+  const client = useRealityClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [syncCount, setSyncCount] = useState(0);
   const [fetchCount, setFetchCount] = useState(0);
-  const adapterRef = useRef<ReturnType<typeof createPollingAdapter> | null>(null);
+  const adapterRef = useRef<PollingAdapterControl | null>(null);
 
   useEffect(() => {
     // Create polling adapter with Reality integration
-    const adapter = createPollingAdapter<NotificationResponse>({
-      key: 'notifications:all',
-      realityEndpoint: 'http://localhost:3000/reality/sync',
-      payloadEndpoint: 'http://localhost:3000/api/notifications',
-      interval: intervalMs,
-      
-      onSync: () => {
-        setSyncCount(prev => prev + 1);
-      },
-      
-      onData: (data) => {
+    const adapter = createPollingAdapter<NotificationResponse>(
+      'http://localhost:3000/api/notifications',
+      (data) => {
         setNotifications(data.notifications);
         setUnreadCount(data.unreadCount);
         setFetchCount(prev => prev + 1);
         setIsLoading(false);
         setError(null);
       },
-      
-      onError: (err) => {
-        setError(err);
-        setIsLoading(false);
-      },
-    });
+      client,
+      {
+        realityKey: 'notifications:all',
+        syncOnFocus: true,
+        syncOnVisibility: true,
+      }
+    );
     
     adapterRef.current = adapter;
-    adapter.start();
+    
+    // Initial sync
+    adapter.sync().then(() => {
+      setSyncCount(prev => prev + 1);
+    }).catch((err: Error) => {
+      setError(err);
+      setIsLoading(false);
+    });
     
     return () => adapter.stop();
-  }, [intervalMs]);
+  }, [client]);
 
   const markAsRead = useCallback(async (id: string) => {
     try {
@@ -110,50 +110,65 @@ export function usePollingCompatNotifications(intervalMs: number = 2000) {
  * - Best efficiency
  */
 export function useRealityNotifications() {
+  const [syncCount, setSyncCount] = useState(0);
+  const [fetchCount, setFetchCount] = useState(0);
+
   const {
     data,
     isLoading,
     isSyncing,
     error,
     sync,
-    meta,
+    lastSyncAt,
   } = useReality<NotificationResponse>(
     'notifications:all',
     {
       fallback: { notifications: [], unreadCount: 0 },
       
       fetcher: async () => {
+        setFetchCount(prev => prev + 1);
         const response = await fetch('http://localhost:3000/api/notifications');
         return response.json();
       },
       
-      // Only refetch when stale
-      staleTime: 1000,
-      
-      // Dedupe rapid requests
-      dedupeInterval: 200,
+      // Refetch on focus
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }
   );
 
-  const { mutate: markAsReadMutation } = useMutation<void, string>(
+  const { mutate: markAsReadMutation } = useMutation<NotificationResponse, string>(
     'notifications:all',
     async (id) => {
       await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
         method: 'PATCH',
       });
+      // Return updated data
+      const response = await fetch('http://localhost:3000/api/notifications');
+      return response.json();
     },
     {
       // Optimistic update
       optimisticUpdate: (current, id) => ({
-        ...current,
-        notifications: current.notifications.map(n =>
+        notifications: (current?.notifications ?? []).map(n =>
           n.id === id ? { ...n, read: true } : n
         ),
-        unreadCount: Math.max(0, current.unreadCount - 1),
+        unreadCount: Math.max(0, (current?.unreadCount ?? 0) - 1),
       }),
       rollbackOnError: true,
     }
   );
+
+  // Track sync count
+  useEffect(() => {
+    if (lastSyncAt) {
+      setSyncCount(prev => prev + 1);
+    }
+  }, [lastSyncAt]);
+
+  const handleSync = useCallback(async () => {
+    await sync('interaction');
+  }, [sync]);
 
   return {
     notifications: data?.notifications ?? [],
@@ -161,10 +176,10 @@ export function useRealityNotifications() {
     isLoading,
     isSyncing,
     error,
-    syncCount: meta?.syncCount ?? 0,
-    fetchCount: meta?.fetchCount ?? 0,
+    syncCount,
+    fetchCount,
     markAsRead: markAsReadMutation,
-    refresh: sync,
+    refresh: handleSync,
   };
 }
 
@@ -183,6 +198,12 @@ export function NotificationCenter() {
     markAsRead,
     refresh,
   } = useRealityNotifications();
+
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+  }, [markAsRead]);
 
   if (error) {
     return <div className="error">Error: {error.message}</div>;
@@ -219,7 +240,7 @@ export function NotificationCenter() {
             <div
               key={notification.id}
               className={`notification ${notification.type} ${notification.read ? 'read' : 'unread'}`}
-              onClick={() => !notification.read && markAsRead(notification.id)}
+              onClick={() => handleNotificationClick(notification)}
             >
               <div className="notification-icon">
                 {notification.type === 'info' && 'ℹ️'}
@@ -267,7 +288,13 @@ export function NotificationCenterCompat() {
     fetchCount,
     markAsRead,
     refresh,
-  } = usePollingCompatNotifications(2000);
+  } = usePollingCompatNotifications();
+
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+  }, [markAsRead]);
 
   if (error) {
     return <div className="error">Error: {error.message}</div>;
@@ -290,7 +317,7 @@ export function NotificationCenterCompat() {
             📦 Fetches: {fetchCount}
           </span>
           <span className="mode">🟡 Polling Compat</span>
-          <button onClick={refresh}>Refresh</button>
+          <button onClick={() => refresh?.()}>Refresh</button>
         </div>
       </header>
 
@@ -302,7 +329,7 @@ export function NotificationCenterCompat() {
             <div
               key={notification.id}
               className={`notification ${notification.type} ${notification.read ? 'read' : 'unread'}`}
-              onClick={() => !notification.read && markAsRead(notification.id)}
+              onClick={() => handleNotificationClick(notification)}
             >
               <div className="notification-icon">
                 {notification.type === 'info' && 'ℹ️'}

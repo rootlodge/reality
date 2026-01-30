@@ -48,7 +48,7 @@ function App() {
   });
 
   // Mutation for sending messages with optimistic update
-  const { mutate: sendMessage, isLoading: isSending } = useMutation<Message, string>(
+  const { mutate: sendMessage, isLoading: isSending } = useMutation<Message[], string>(
     `chat:room:${roomId}`,
     async (text) => {
       const response = await fetch('http://localhost:3001/api/messages', {
@@ -61,11 +61,13 @@ function App() {
           text,
         }),
       });
-      return response.json();
+      // Server returns the new message, but we return the full array for optimistic update
+      const newMsg = await response.json();
+      return [...(messages ?? []).filter(m => !m.pending), newMsg];
     },
     {
       // Optimistic update - show message immediately
-      optimisticUpdate: (currentMessages, text) => [
+      optimisticUpdate: (currentMessages: Message[] | undefined, text: string): Message[] => [
         ...(currentMessages ?? []),
         {
           id: `temp-${Date.now()}`,

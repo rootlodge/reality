@@ -12,8 +12,8 @@
  */
 
 import { serve } from 'bun';
-import { RealityServer, MemoryStorage, createFetchHandler } from '@rootlodge/reality-server';
-import { createHash } from '@rootlodge/reality/utils';
+import { createRealityServer, MemoryStorage } from '@rootlodge/reality-server';
+import { createHash } from '@rootlodge/reality';
 
 interface Notification {
   id: string;
@@ -26,12 +26,12 @@ interface Notification {
 
 // Initialize Reality server
 const storage = new MemoryStorage();
-const server = new RealityServer({
-  storage,
+const server = createRealityServer({
   serverId: `notification-server-${Date.now()}`,
-});
+  port: 3000,
+}, storage);
 
-const realityHandler = createFetchHandler(server);
+const realityHandler = server.getFetchHandler('/reality');
 
 // Simulated notification data
 let notifications: Notification[] = [

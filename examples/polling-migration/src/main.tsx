@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RealityProvider } from '@rootlodge/reality/react';
+import { RealityProvider } from '@rootlodge/reality';
 
 // Old polling implementation (for comparison)
 import { OldNotificationCenter } from './old-polling-client';
@@ -204,10 +204,10 @@ function App() {
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <RealityProvider
-    endpoint="http://localhost:3000/reality/sync"
-    mode="native"
-    syncOnFocus={true}
-    syncOnReconnect={true}
+    options={{
+      servers: ['http://localhost:3000'],
+      debug: true,
+    }}
   >
     <App />
   </RealityProvider>
