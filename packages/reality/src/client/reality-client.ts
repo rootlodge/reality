@@ -21,7 +21,6 @@ import { RealityTransport } from '../transport/transport';
 import { SyncEngine } from './sync-engine';
 import { generateUUID } from '../utils/uuid';
 import { now } from '../utils/time';
-import { createHash } from '../utils/hash';
 
 /**
  * Visibility and focus tracking for intelligent sync triggers
@@ -146,7 +145,6 @@ export class RealityClient {
 
     // Apply optimistic update if provided
     if (options.optimisticUpdate) {
-      const state = this.getState<T>(key);
       rollback = this.syncEngine.applyOptimisticUpdate<T>(
         key,
         (current) => options.optimisticUpdate!(current, input)

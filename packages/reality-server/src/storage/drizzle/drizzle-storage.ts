@@ -147,7 +147,7 @@ export class DrizzleStorage implements RealityStorage {
       // Get current max version
       const maxResults = await tx
         .select({ maxVersion: this.ops.max(this.table.version) })
-        .from(this.table) as Array<{ maxVersion: number | null }>;
+        .from(this.table) as unknown as Array<{ maxVersion: number | null }>;
 
       const maxVersion = maxResults[0]?.maxVersion ?? 0;
       const newVersion = maxVersion + 1;
@@ -231,7 +231,7 @@ export class DrizzleStorage implements RealityStorage {
   async getMaxVersion(): Promise<number> {
     const results = await this.db
       .select({ maxVersion: this.ops.max(this.table.version) })
-      .from(this.table) as Array<{ maxVersion: number | null }>;
+      .from(this.table) as unknown as Array<{ maxVersion: number | null }>;
 
     return results[0]?.maxVersion ?? 0;
   }

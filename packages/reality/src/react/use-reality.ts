@@ -9,7 +9,6 @@ import type {
   RealityNodeState,
   RealityKeyOptions,
   SyncHint,
-  MutationOptions,
 } from '../types';
 import { useRealityClient } from './context';
 

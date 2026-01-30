@@ -12,12 +12,12 @@ import type {
   ResolvedRealityOptions,
 } from '../types';
 import { SyncResponseSchema } from '../types';
-import { now, backoffDelay, timeout } from '../utils/time';
+import { now, timeout } from '../utils/time';
 
 /**
  * Server health status tracking
  */
-interface ServerStatus {
+export interface ServerStatus {
   url: string;
   health: PeerHealth;
   lastSuccess: number;
@@ -182,7 +182,7 @@ export class RealityTransport {
   /**
    * Record a failed sync attempt
    */
-  private recordFailure(url: string, error: Error): void {
+  private recordFailure(url: string, _error: Error): void {
     const server = this.servers.get(url);
     if (!server) return;
 

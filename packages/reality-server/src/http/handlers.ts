@@ -13,10 +13,8 @@ import type {
   SyncRequest,
   SyncResponse,
   ChangedNode,
-  InvalidationRequest,
   InvalidationResponse,
   HealthResponse,
-  RealityNodeMeta,
 } from '../types';
 import { SyncRequestSchema, InvalidationRequestSchema } from '../types';
 import { MeshCoordinator } from '../mesh/coordinator';
@@ -74,7 +72,7 @@ export async function handleSync(
   }
 
   const syncRequest: SyncRequest = parsed.data;
-  const { storage, mesh, redis, payloadFetcher } = deps;
+  const { storage, mesh, redis: _redis, payloadFetcher } = deps;
 
   try {
     // Get all keys client is interested in

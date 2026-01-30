@@ -5,7 +5,7 @@
  * Returns data in the same format as traditional polling endpoints.
  */
 
-import type { RealityStorage, RealityNodeMeta } from '../types';
+import type { RealityStorage } from '../types';
 import { MeshCoordinator } from '../mesh/coordinator';
 
 /**

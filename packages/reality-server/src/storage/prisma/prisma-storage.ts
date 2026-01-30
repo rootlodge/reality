@@ -104,6 +104,7 @@ export class PrismaStorage implements RealityStorage {
         updatedAt: BigInt(meta.updatedAt),
       },
       update: {
+        key: meta.key,
         version: BigInt(meta.version),
         hash: meta.hash,
         updatedAt: BigInt(meta.updatedAt),
@@ -137,6 +138,7 @@ export class PrismaStorage implements RealityStorage {
           updatedAt: BigInt(meta.updatedAt),
         },
         update: {
+          key: meta.key,
           version: BigInt(meta.version),
           hash: meta.hash,
           updatedAt: BigInt(meta.updatedAt),

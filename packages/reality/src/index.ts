@@ -70,9 +70,12 @@ export {
 export { createHash, hashEquals, combineHashes } from './utils/hash';
 export { generateUUID, isValidUUID } from './utils/uuid';
 
+// Import for default export
+import { createRealityClient as _createRealityClient } from './client/reality-client';
+
 /**
  * Default export for convenient imports
  */
 export default {
-  createRealityClient,
+  createRealityClient: _createRealityClient,
 };

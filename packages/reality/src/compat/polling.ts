@@ -7,7 +7,6 @@
 
 import type { RealityKeyOptions, RealityNodeState, SyncHint } from '../types';
 import { RealityClient } from '../client/reality-client';
-import { now } from '../utils/time';
 
 /**
  * Callback for polling adapter

@@ -5,7 +5,7 @@
  * Provides a base implementation that can be extended for specific databases.
  */
 
-import type { RealityStorage, RealityNodeMeta } from '../types';
+import type { RealityStorage, RealityNodeMeta } from '../../types';
 
 /**
  * SQL query executor interface
@@ -36,7 +36,7 @@ export const SQLDialects = {
     placeholder: (i: number) => `$${i}`,
     upsert: (table: string, columns: string[], conflictColumn: string) =>
       `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(', ')}) ` +
-      `ON CONFLICT (${conflictColumn}) DO UPDATE SET ${columns.filter(c => c !== conflictColumn).map((c, i) => `${c} = EXCLUDED.${c}`).join(', ')}`,
+      `ON CONFLICT (${conflictColumn}) DO UPDATE SET ${columns.filter(c => c !== conflictColumn).map((c, _i) => `${c} = EXCLUDED.${c}`).join(', ')}`,
     now: () => 'NOW()',
   },
   mysql: {
@@ -48,7 +48,7 @@ export const SQLDialects = {
   },
   sqlite: {
     placeholder: () => '?',
-    upsert: (table: string, columns: string[], conflictColumn: string) =>
+    upsert: (table: string, columns: string[], _conflictColumn: string) =>
       `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
     now: () => "datetime('now')",
   },

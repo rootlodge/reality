@@ -74,7 +74,7 @@ export class SSECompatAdapter {
 
   constructor(config: SSECompatConfig) {
     this.config = {
-      transform: (key, data) => JSON.stringify(data),
+      transform: (_key, data) => JSON.stringify(data),
       ...config,
     };
   }

@@ -5,7 +5,7 @@
  * Allows migration from SSE to Reality with minimal code changes.
  */
 
-import type { RealityKeyOptions, RealityNodeState, SyncHint } from '../types';
+import type { RealityKeyOptions, RealityNodeState } from '../types';
 import { RealityClient } from '../client/reality-client';
 
 /**

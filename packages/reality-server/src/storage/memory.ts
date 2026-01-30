@@ -24,7 +24,6 @@ export class MemoryStorage implements RealityStorage {
   }
 
   async incrementVersion(key: string, hash: string): Promise<RealityNodeMeta> {
-    const existing = this.nodes.get(key);
     const version = this.maxVersion + 1;
     
     const meta: RealityNodeMeta = {

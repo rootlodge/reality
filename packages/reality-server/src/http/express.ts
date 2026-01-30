@@ -4,7 +4,7 @@
  * Adapter for Express.js framework.
  */
 
-import type { RealityRequest, Middleware } from '../types';
+import type { RealityRequest } from '../types';
 import type { HandlerDeps } from './handlers';
 import {
   handleSync,
