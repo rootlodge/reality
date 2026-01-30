@@ -13,10 +13,33 @@ Reality replaces WebSockets, SSE, and polling with something better: **Determini
 │    ║   Scale by adding servers, not complexity.                        ║    │
 │    ║   Works everywhere HTTP works.                                    ║    │
 │    ║                                                                   ║    │
+│    ║   ⚠️  REALITY DOES NOT OWN YOUR DATA                              ║    │
+│    ║   Your database. Your queries. Your control.                      ║    │
+│    ║   Reality only tracks change metadata (version hashes).           ║    │
+│    ║                                                                   ║    │
 │    ╚═══════════════════════════════════════════════════════════════════╝    │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## ⚠️ Important: Data Ownership
+
+**Reality does NOT:**
+- Store your application data
+- Own your database
+- Execute your queries
+- See your actual payloads
+
+**Reality only:**
+- Tracks version hashes (metadata)
+- Coordinates "this changed" notifications
+- Helps clients know when to refetch
+
+**You own:**
+- Your database (Postgres, MySQL, SQLite, MongoDB, etc.)
+- Your queries (Drizzle, Prisma, raw SQL, etc.)
+- Your data fetching logic
+- When and how to refetch
 
 ## Packages
 
@@ -131,23 +154,47 @@ Add servers without coordination. No sticky sessions required.
 ### ✅ Works Everywhere
 Behind CDNs, load balancers, proxies, firewalls - if HTTP works, Reality works.
 
+### ✅ SSR / TanStack / Vite Support
+Embedded mode for SSR frameworks - no external server needed.
+
+### ✅ Database Optional
+Reality only tracks metadata. Your database is optional and entirely yours.
+
 ### ✅ Type-Safe
 Full TypeScript support with Zod runtime validation.
 
 ### ✅ Framework Agnostic
-Works with React, React Native, Node.js, Bun, Deno, Cloudflare Workers.
+Works with React, React Native, TanStack, Next.js, Nuxt, Bun, Deno, Cloudflare Workers.
 
 ### ✅ Migration Path
 Drop-in `EventSource` and polling replacements for gradual migration.
+
+## Execution Modes
+
+| Mode | Use Case |
+|------|----------|
+| `client` | Browser apps connecting to external Reality server |
+| `ssr-embedded` | SSR frameworks (TanStack, Next.js) - no external server |
+| `server-external` | Server-side connecting to external Reality server |
+| `auto` | Automatically detect environment (recommended) |
+
+## Persistence Modes
+
+| Mode | Description |
+|------|-------------|
+| `none` | No persistence - metadata in memory only |
+| `advisory` | Reality suggests caching; you decide |
+| `external` | Your app manages all persistence |
 
 ## Examples
 
 | Example | Description |
 |---------|-------------|
-| [react-chat](./examples/react-chat) | Real-time chat with optimistic updates |
-| [sse-migration](./examples/sse-migration) | Side-by-side SSE comparison |
-| [polling-migration](./examples/polling-migration) | Bandwidth reduction demo |
-| [react-native](./examples/react-native) | Mobile app integration |
+| [SSR TanStack](./packages/reality/examples/ssr-tanstack.ts) | TanStack Start SSR integration |
+| [SSR Embedded](./packages/reality/examples/ssr-embedded.ts) | Embedded mode for any SSR framework |
+| [Client Usage](./packages/reality/examples/client-usage.ts) | Traditional client-server setup |
+| [No Database](./packages/reality-server/examples/no-database.ts) | Server without any database |
+| [Drizzle Auto-Invalidation](./packages/reality-server/examples/drizzle-auto-invalidation.ts) | Optional Drizzle integration |
 
 ## Documentation
 
@@ -158,15 +205,30 @@ Drop-in `EventSource` and polling replacements for gradual migration.
 | [Compatibility](./docs/COMPATIBILITY.md) | Drop-in replacements for gradual migration |
 | [Simple Explanation](./docs/SIMPLE_EXPLANATION.md) | Non-technical overview |
 
-## Storage Adapters
+## Storage Adapters (Optional)
+
+**Remember: Storage is OPTIONAL. Reality works fine without any database.**
 
 | Adapter | Use Case |
 |---------|----------|
-| `MemoryStorage` | Development, testing |
-| `SQLStorage` | PostgreSQL, MySQL, SQLite |
-| `createDrizzleAdapter` | Drizzle ORM |
-| `createPrismaAdapter` | Prisma ORM |
-| `DynamoDBStorage` | AWS DynamoDB |
+| `MemoryStorage` | Development, testing, stateless deployments |
+| `SQLStorage` | PostgreSQL, MySQL, SQLite (for metadata persistence) |
+| `createDrizzleAdapter` | Drizzle ORM integration (optional) |
+| `createPrismaAdapter` | Prisma ORM integration (optional) |
+| `DynamoDBStorage` | AWS DynamoDB (for metadata persistence) |
+
+## Invalidation Adapters (Optional)
+
+For convenience, you can connect Reality to your database for automatic invalidation.
+**This is optional** - you can always call `server.invalidate()` manually.
+
+| Adapter | Use Case |
+|---------|----------|
+| `createCallbackInvalidationAdapter` | Custom callback-based invalidation |
+| `createDrizzleInvalidationAdapter` | Auto-invalidate when Drizzle writes |
+| `createPrismaInvalidationAdapter` | Auto-invalidate when Prisma writes |
+| `createSQLInvalidationAdapter` | Auto-invalidate with raw SQL |
+| `createCompositeInvalidationAdapter` | Combine multiple adapters |
 
 ## Modes
 
@@ -215,24 +277,24 @@ reality/
 │   │   ├── src/
 │   │   │   ├── types/     # Shared types and schemas
 │   │   │   ├── client/    # Core client implementation
+│   │   │   ├── transport/ # Transport abstraction (HTTP, Embedded)
+│   │   │   ├── ssr/       # SSR adapters (TanStack, etc.)
 │   │   │   ├── react/     # React hooks and context
 │   │   │   ├── compat/    # SSE/polling compatibility
 │   │   │   └── utils/     # Utility functions
+│   │   ├── examples/      # Usage examples
 │   │   └── README.md
 │   │
 │   └── reality-server/    # Server package
 │       ├── src/
-│       │   ├── storage/   # Storage adapters
+│       │   ├── storage/   # Storage adapters (optional)
+│       │   ├── invalidation/ # Invalidation adapters (optional)
 │       │   ├── mesh/      # Mesh coordination
 │       │   ├── handlers/  # HTTP handlers
+│       │   ├── embedded.ts # Embedded server for SSR
 │       │   └── server.ts  # Main server class
+│       ├── examples/      # Usage examples
 │       └── README.md
-│
-├── examples/
-│   ├── react-chat/        # React chat example
-│   ├── sse-migration/     # SSE migration example
-│   ├── polling-migration/ # Polling migration example
-│   └── react-native/      # React Native example
 │
 ├── docs/
 │   ├── ARCHITECTURE.md    # Technical architecture
