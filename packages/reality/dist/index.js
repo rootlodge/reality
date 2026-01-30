@@ -1872,6 +1872,7 @@ exports.createEventSource = createEventSource;
 exports.createEventSourceFactory = createEventSourceFactory;
 exports.createHash = createHash;
 exports.createPollingAdapter = createPollingAdapter;
+exports.createReality = createRealityClient;
 exports.createRealityClient = createRealityClient;
 exports.createRealityTanStackAdapter = createRealityTanStackAdapter;
 exports.createSSRContext = createSSRContext;

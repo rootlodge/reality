@@ -4,6 +4,9 @@
  * This example demonstrates using Reality with TanStack Start for SSR.
  * Reality does NOT own your data - it only tracks change metadata (version hashes).
  * Your database, your queries, your control.
+ * 
+ * NOTE: This is a documentation example showing the patterns.
+ * Actual implementation would be in .tsx files with proper React imports.
  */
 
 import { createReality, createRealityTanStackAdapter, createSSRContext } from '@rootlodge/reality';
@@ -16,9 +19,6 @@ const reality = createReality({
   // In TanStack SSR, use 'ssr-embedded' mode - no external server needed
   executionMode: 'ssr-embedded',
   
-  // No persistence needed - Reality only tracks metadata
-  persistence: 'none',
-  
   // No servers array needed in embedded mode
   servers: [],
 });
@@ -28,13 +28,11 @@ const reality = createReality({
 // ============================================
 
 const realityAdapter = createRealityTanStackAdapter({
-  reality,
+  // Keys to prefetch during SSR
+  keys: ['posts', 'user:123'],
   
-  // Optional: Custom invalidation behavior
-  defaultInvalidation: {
-    broadcast: true,
-    immediate: true,
-  },
+  // Optional: server ID for the embedded server
+  serverId: 'tanstack-ssr',
 });
 
 // ============================================
@@ -42,20 +40,21 @@ const realityAdapter = createRealityTanStackAdapter({
 // ============================================
 
 // In your route loader (server-side):
-async function loader() {
+// Note: 'db' would be your Drizzle/Prisma/etc database instance
+async function loader(db: { query: { posts: { findMany: () => Promise<Array<{ id: number; title: string }>> } } }) {
   // Create SSR context for this request
   const ssrContext = createSSRContext();
   
   // Your normal data fetching - Reality doesn't interfere
   const posts = await db.query.posts.findMany();
   
-  // Optionally prefetch Reality nodes for hydration
-  await realityAdapter.prefetch(['posts', 'user:123']);
+  // Prefetch Reality nodes for hydration
+  const realityState = await realityAdapter.prefetch();
   
   return {
     posts,
     // Include Reality state for client hydration
-    realityState: ssrContext.serialize(),
+    realityState,
   };
 }
 
@@ -64,15 +63,20 @@ async function loader() {
 // ============================================
 
 // In your mutation action:
-async function createPostAction(formData: FormData) {
+// Note: 'db' and 'posts' schema would be your database setup
+async function createPostAction(
+  formData: FormData,
+  db: { insert: (table: unknown) => { values: (v: unknown) => { returning: () => Promise<Array<{ id: number }>> } } },
+  postsTable: unknown
+) {
   // Your normal database write
-  const post = await db.insert(posts).values({
+  const post = await db.insert(postsTable).values({
     title: formData.get('title') as string,
     content: formData.get('content') as string,
   }).returning();
   
   // Tell Reality this data changed (just metadata, not the actual data)
-  await realityAdapter.invalidate('posts');
+  await realityAdapter.invalidate(['posts']);
   
   return post;
 }
@@ -81,31 +85,29 @@ async function createPostAction(formData: FormData) {
 // 5. Subscribe to changes in components
 // ============================================
 
-function PostsList() {
-  // Your normal TanStack query
-  const { data: posts, refetch } = useQuery({
-    queryKey: ['posts'],
-    queryFn: () => fetch('/api/posts').then(r => r.json()),
-  });
-  
-  // When Reality detects changes, refetch your data
-  useEffect(() => {
-    const unsubscribe = reality.subscribe(['posts'], () => {
-      // Reality says "posts changed" - you decide what to do
-      refetch();
-    });
-    
-    return unsubscribe;
-  }, [refetch]);
-  
-  return (
-    <ul>
-      {posts?.map(post => (
-        <li key={post.id}>{post.title}</li>
-      ))}
-    </ul>
-  );
-}
+// Example component pattern (would be in a .tsx file):
+// 
+// function PostsList() {
+//   const { data: posts, refetch } = useQuery({
+//     queryKey: ['posts'],
+//     queryFn: () => fetch('/api/posts').then(r => r.json()),
+//   });
+//   
+//   useEffect(() => {
+//     const unsubscribe = reality.subscribe(['posts'], () => {
+//       refetch();
+//     });
+//     return unsubscribe;
+//   }, [refetch]);
+//   
+//   return (
+//     <ul>
+//       {posts?.map(post => (
+//         <li key={post.id}>{post.title}</li>
+//       ))}
+//     </ul>
+//   );
+// }
 
 // ============================================
 // Key Points:

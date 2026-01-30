@@ -2,10 +2,13 @@
  * @rootlodge/reality - Client Usage with External Server
  * 
  * This example shows the traditional client-server setup where
- * a Reality server runs externally and clients connect via WebSocket.
+ * a Reality server runs externally and clients connect via HTTP.
  * 
  * Remember: Reality doesn't own your data. Your app fetches data
  * from YOUR database/API. Reality just tells you when to refetch.
+ * 
+ * NOTE: This is a documentation example. React hooks (useState, useEffect)
+ * are shown in comments to illustrate patterns.
  */
 
 import { createReality } from '@rootlodge/reality';
@@ -17,22 +20,17 @@ import { createReality } from '@rootlodge/reality';
 const reality = createReality({
   // Connect to external Reality server(s)
   servers: [
-    { url: 'ws://localhost:3456', weight: 1 },
-    { url: 'ws://backup.example.com:3456', weight: 0.5 },  // Optional backup
+    'http://localhost:3456',
+    'http://backup.example.com:3456',  // Optional backup
   ],
   
   // Execution mode: 'client' for browser apps connecting to external servers
   executionMode: 'client',
   
-  // Persistence: 'none' is fine - Reality only tracks metadata
-  persistence: 'none',
-  
   // Optional: Custom retry behavior
-  retry: {
-    maxRetries: 3,
-    baseDelay: 1000,
-    maxDelay: 30000,
-  },
+  maxRetries: 3,
+  retryBaseDelay: 1000,
+  timeout: 30000,
   
   // Optional: Enable debug logging
   debug: process.env.NODE_ENV === 'development',
@@ -42,26 +40,30 @@ const reality = createReality({
 // 2. Subscribe to changes
 // ============================================
 
-// Subscribe to specific nodes - you decide what they represent
-const unsubscribe = reality.subscribe(
-  ['posts', 'user:123', 'comments'],
-  (changedNodes) => {
-    console.log('These nodes changed:', changedNodes);
-    
+// Subscribe to specific nodes - one subscription per key
+// (For multiple keys, create multiple subscriptions)
+const unsubscribePosts = reality.subscribe(
+  'posts',
+  (state) => {
+    console.log('Posts node changed:', state);
     // YOUR responsibility: refetch data from YOUR source
-    // Reality just told you something changed
-    
-    changedNodes.forEach(nodeKey => {
-      if (nodeKey === 'posts') {
-        // Refetch posts from your API
-        fetchPosts();
-      } else if (nodeKey.startsWith('user:')) {
-        const userId = nodeKey.split(':')[1];
-        fetchUser(userId);
-      } else if (nodeKey === 'comments') {
-        fetchComments();
-      }
-    });
+    fetchPosts();
+  }
+);
+
+const unsubscribeUser = reality.subscribe(
+  'user:123',
+  (state) => {
+    console.log('User node changed:', state);
+    fetchUser('123');
+  }
+);
+
+const unsubscribeComments = reality.subscribe(
+  'comments',
+  (state) => {
+    console.log('Comments node changed:', state);
+    fetchComments();
   }
 );
 
@@ -95,7 +97,7 @@ async function fetchComments() {
 // 4. Notify Reality when YOU change data
 // ============================================
 
-// When your app creates/updates/deletes data, tell Reality
+// When your app creates/updates/deletes data, tell Reality via sync
 async function createPost(title: string, content: string) {
   // 1. Write to YOUR database (via your API)
   const response = await fetch('/api/posts', {
@@ -104,40 +106,39 @@ async function createPost(title: string, content: string) {
   });
   const newPost = await response.json();
   
-  // 2. Tell Reality that 'posts' changed
-  // This broadcasts to other clients so they know to refetch
-  await reality.sync({
-    nodeKey: 'posts',
-    version: Date.now().toString(),  // Simple version - you can use anything
-  });
+  // 2. Tell Reality that 'posts' changed by triggering a sync
+  // This will pick up the new version from the server
+  await reality.syncKeys(['posts'], 'mutation');
   
   return newPost;
 }
 
 // ============================================
-// 5. React integration example
+// 5. React integration example (pseudocode)
 // ============================================
 
 // Using with React (you'd typically create a custom hook)
-function usePosts() {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    // Initial fetch
-    fetchPosts().then(setPosts).finally(() => setLoading(false));
-    
-    // Subscribe to changes
-    const unsubscribe = reality.subscribe(['posts'], () => {
-      setLoading(true);
-      fetchPosts().then(setPosts).finally(() => setLoading(false));
-    });
-    
-    return unsubscribe;
-  }, []);
-  
-  return { posts, loading };
-}
+// This is shown as pseudocode - actual implementation would import React
+//
+// function usePosts() {
+//   const [posts, setPosts] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   
+//   useEffect(() => {
+//     // Initial fetch
+//     fetchPosts().then(setPosts).finally(() => setLoading(false));
+//     
+//     // Subscribe to changes
+//     const unsubscribe = reality.subscribe(['posts'], () => {
+//       setLoading(true);
+//       fetchPosts().then(setPosts).finally(() => setLoading(false));
+//     });
+//     
+//     return unsubscribe;
+//   }, []);
+//   
+//   return { posts, loading };
+// }
 
 // ============================================
 // 6. Cleanup
@@ -145,18 +146,20 @@ function usePosts() {
 
 // When your app unmounts or user logs out
 function cleanup() {
-  unsubscribe();
-  reality.disconnect();
+  unsubscribePosts();
+  unsubscribeUser();
+  unsubscribeComments();
+  reality.destroy();
 }
 
 // ============================================
 // Key Points:
 // ============================================
 //
-// 1. reality.subscribe() - Listen for "something changed" notifications
-// 2. reality.sync() - Tell others "I changed something"  
+// 1. reality.subscribe(key, callback) - Listen for "something changed" notifications
+// 2. reality.syncKeys([keys], hint) - Sync specific keys with server
 // 3. Your data fetching is 100% your code - Reality doesn't touch it
 // 4. Reality is just a coordination layer - it never sees your data
 // 5. Works with any backend: REST, GraphQL, gRPC, direct DB, etc.
 
-export { reality, usePosts, createPost, cleanup };
+export { reality, createPost, cleanup };

@@ -1,40 +1,40 @@
 {
   "name": "@rootlodge/reality-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Socketless Real-Time Infrastructure - Server components with mesh awareness and storage adapters",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./storage": {
+      "types": "./dist/storage/index.d.ts",
       "import": "./dist/storage/index.mjs",
-      "require": "./dist/storage/index.js",
-      "types": "./dist/storage/index.d.ts"
+      "require": "./dist/storage/index.js"
     },
     "./http": {
+      "types": "./dist/http/index.d.ts",
       "import": "./dist/http/index.mjs",
-      "require": "./dist/http/index.js",
-      "types": "./dist/http/index.d.ts"
+      "require": "./dist/http/index.js"
     },
     "./mesh": {
+      "types": "./dist/mesh/index.d.ts",
       "import": "./dist/mesh/index.mjs",
-      "require": "./dist/mesh/index.js",
-      "types": "./dist/mesh/index.d.ts"
+      "require": "./dist/mesh/index.js"
     },
     "./redis": {
+      "types": "./dist/redis/index.d.ts",
       "import": "./dist/redis/index.mjs",
-      "require": "./dist/redis/index.js",
-      "types": "./dist/redis/index.d.ts"
+      "require": "./dist/redis/index.js"
     },
     "./compat": {
+      "types": "./dist/compat/index.d.ts",
       "import": "./dist/compat/index.mjs",
-      "require": "./dist/compat/index.js",
-      "types": "./dist/compat/index.d.ts"
+      "require": "./dist/compat/index.js"
     }
   },
   "files": [

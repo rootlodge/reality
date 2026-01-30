@@ -5,21 +5,23 @@
  * Reality entirely in-process without any external WebSocket server.
  * 
  * This is the 'ssr-embedded' execution mode.
+ * 
+ * NOTE: This is a documentation example showing the patterns.
+ * Variables like 'db', 'getSession', etc. represent YOUR implementations.
  */
 
 import { 
   createReality, 
-  createEmbeddedRealityServer,
-  getSharedEmbeddedServer,
+  getEmbeddedServer,
 } from '@rootlodge/reality';
-import { createEmbeddedRealityServer as createServer } from '@rootlodge/reality-server';
+import { createEmbeddedRealityServer } from '@rootlodge/reality-server';
 
 // ============================================
 // 1. Create embedded server (runs in your SSR process)
 // ============================================
 
 // This runs IN your SSR process - no external server needed
-const embeddedServer = createServer({
+const embeddedServer = createEmbeddedRealityServer({
   // Server ID for this instance (useful for debugging)
   serverId: 'ssr-embedded-1',
   
@@ -37,14 +39,28 @@ const reality = createReality({
   
   // No external servers needed
   servers: [],
-  
-  // Reference to the embedded server
-  embeddedServer: embeddedServer,
 });
 
 // ============================================
 // 3. SSR request handling
 // ============================================
+
+// Type definitions for the example
+interface User { id: string; name: string }
+interface Post { id: number; title: string }
+interface Session { userId: string }
+interface Database {
+  query: {
+    posts: { findMany: () => Promise<Post[]> };
+    users: { findFirst: (opts: { where: { id: string } }) => Promise<User> };
+  };
+  insert: (table: unknown) => { values: (v: unknown) => { returning: () => Promise<Post[]> } };
+}
+
+// Placeholder types - in your app, these would be your actual implementations
+declare const db: Database;
+declare function getSession(request: Request): Session;
+declare function renderPage(data: { posts: Post[]; user: User }): Promise<string>;
 
 // In your SSR request handler / route loader:
 async function handleSSRRequest(request: Request) {
@@ -54,17 +70,20 @@ async function handleSSRRequest(request: Request) {
     where: { id: getSession(request).userId }
   });
   
-  // 2. Reality tracks what data was used in this render
+  // 2. Track what data was used in this render
   // This is useful for knowing what to invalidate later
-  const renderContext = reality.createRenderContext();
-  renderContext.track('posts');
-  renderContext.track(`user:${user.id}`);
+  // Note: tracking is conceptual here - you implement based on your needs
+  const trackedKeys = ['posts', `user:${user.id}`];
   
   // 3. Render your page
   const html = await renderPage({ posts, user });
   
   // 4. Include Reality hydration state
-  const realityState = reality.serializeForHydration();
+  // Note: get the current state of tracked keys for hydration
+  const realityState = {
+    keys: trackedKeys,
+    timestamp: Date.now(),
+  };
   
   return new Response(
     html.replace('</body>', `
@@ -80,19 +99,22 @@ async function handleSSRRequest(request: Request) {
 // 4. Mutation handling
 // ============================================
 
+// Posts table schema placeholder
+declare const postsTable: unknown;
+
 // When data changes on the server:
 async function handleMutation(request: Request) {
   const data = await request.json();
   
   // 1. Your normal database write
-  const post = await db.insert(posts).values({
+  const post = await db.insert(postsTable).values({
     title: data.title,
     content: data.content,
   }).returning();
   
   // 2. Tell embedded Reality that 'posts' changed
   // This updates the version hash
-  await embeddedServer.invalidate('posts');
+  await embeddedServer.invalidate(['posts']);
   
   // 3. If you have connected clients (hybrid SSR + live updates),
   // they'll receive the invalidation notification
@@ -105,18 +127,22 @@ async function handleMutation(request: Request) {
 // ============================================
 
 // On the client side (after SSR hydration):
-if (typeof window !== 'undefined') {
-  // Hydrate Reality state from SSR
-  const ssrState = (window as any).__REALITY_STATE__;
-  if (ssrState) {
-    reality.hydrate(ssrState);
+// Note: This code would run in the browser, not during SSR
+function hydrateClient() {
+  if (typeof window !== 'undefined') {
+    // Get Reality state from SSR
+    const ssrState = (window as unknown as { __REALITY_STATE__?: { keys: string[] } }).__REALITY_STATE__;
+    
+    // Subscribe to tracked keys for live updates
+    if (ssrState?.keys) {
+      ssrState.keys.forEach((key) => {
+        reality.subscribe(key, (state) => {
+          // Refetch changed data - implement your own refetch logic
+          console.log('Key changed:', key, state);
+        });
+      });
+    }
   }
-  
-  // Now subscribe to live updates
-  reality.subscribe(['posts', 'user:123'], (changed) => {
-    // Refetch changed data
-    refetchQueries(changed);
-  });
 }
 
 // ============================================
@@ -128,7 +154,7 @@ const autoReality = createReality({
   executionMode: 'auto',
   servers: [
     // Optional: fallback to external server if not in SSR
-    { url: 'ws://localhost:3456', weight: 1 },
+    'http://localhost:3456',
   ],
 });
 
@@ -148,4 +174,4 @@ const autoReality = createReality({
 // 5. Can optionally connect to external servers for live updates
 // 6. 'auto' mode detects the best option automatically
 
-export { reality, embeddedServer, handleSSRRequest, handleMutation };
+export { reality, embeddedServer, handleSSRRequest, handleMutation, autoReality, hydrateClient };

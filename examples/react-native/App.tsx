@@ -21,7 +21,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { RealityProvider, useReality, useMutation } from '@rootlodge/reality/react';
+import { RealityProvider, useReality, useMutation } from '@rootlodge/reality';
 
 // Types
 interface Message {
@@ -51,7 +51,7 @@ function MessageList({ roomId }: { roomId: string }) {
     `chat:room:${roomId}`,
     {
       fallback: [],
-      fetcher: async (key) => {
+      fetcher: async (key: string) => {
         const id = key.split(':').pop();
         const response = await fetch(`${API_URL}/api/rooms/${id}/messages`);
         if (!response.ok) throw new Error('Failed to fetch messages');
@@ -61,11 +61,15 @@ function MessageList({ roomId }: { roomId: string }) {
     }
   );
 
+  const handleSync = async () => {
+    await sync('interaction');
+  };
+
   if (error) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Error: {error.message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={sync}>
+        <TouchableOpacity style={styles.retryButton} onPress={handleSync}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -120,9 +124,9 @@ function MessageList({ roomId }: { roomId: string }) {
 function MessageInput({ roomId, userId, username }: { roomId: string; userId: string; username: string }) {
   const [text, setText] = React.useState('');
 
-  const { mutate, isLoading } = useMutation<Message, string>(
+  const { mutate, isLoading } = useMutation<Message[], string>(
     `chat:room:${roomId}`,
-    async (messageText) => {
+    async (messageText: string) => {
       const response = await fetch(`${API_URL}/api/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,10 +138,13 @@ function MessageInput({ roomId, userId, username }: { roomId: string; userId: st
         }),
       });
       if (!response.ok) throw new Error('Failed to send message');
-      return response.json();
+      // Return the updated messages array
+      const newMessage = await response.json();
+      const messagesResponse = await fetch(`${API_URL}/api/rooms/${roomId}/messages`);
+      return messagesResponse.json();
     },
     {
-      optimisticUpdate: (messages, messageText) => [
+      optimisticUpdate: (messages: Message[] | undefined, messageText: string): Message[] => [
         {
           id: `temp-${Date.now()}`,
           text: messageText,
@@ -146,7 +153,7 @@ function MessageInput({ roomId, userId, username }: { roomId: string; userId: st
           timestamp: Date.now(),
           pending: true,
         },
-        ...messages,
+        ...(messages ?? []),
       ],
       rollbackOnError: true,
     }
@@ -197,7 +204,7 @@ function OnlineUsers({ roomId }: { roomId: string }) {
     `presence:room:${roomId}`,
     {
       fallback: [],
-      fetcher: async (key) => {
+      fetcher: async (key: string) => {
         const id = key.split(':').pop();
         const response = await fetch(`${API_URL}/api/rooms/${id}/users`);
         if (!response.ok) return [];
@@ -207,7 +214,7 @@ function OnlineUsers({ roomId }: { roomId: string }) {
     }
   );
 
-  const onlineUsers = users?.filter(u => u.online) ?? [];
+  const onlineUsers = users?.filter((u: User) => u.online) ?? [];
 
   if (isLoading || onlineUsers.length === 0) {
     return null;
@@ -219,7 +226,7 @@ function OnlineUsers({ roomId }: { roomId: string }) {
         {onlineUsers.length} online
       </Text>
       <View style={styles.onlineUsersDots}>
-        {onlineUsers.slice(0, 5).map(user => (
+        {onlineUsers.slice(0, 5).map((user: User) => (
           <View key={user.id} style={styles.onlineDot} />
         ))}
         {onlineUsers.length > 5 && (
@@ -294,12 +301,10 @@ export default function App() {
 
   return (
     <RealityProvider
-      endpoint={REALITY_ENDPOINT}
-      mode="native"
-      syncOnFocus={true}
-      syncOnReconnect={true}
-      // React Native specific: uses AppState instead of visibilitychange
-      platform="react-native"
+      options={{
+        servers: [API_URL],
+        debug: true,
+      }}
     >
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />

@@ -8,7 +8,7 @@
  * 2. OR use native useReality hook (recommended)
  */
 
-import { useReality, RealityEventSource, type EventSourceOptions } from '@rootlodge/reality';
+import { useReality, useRealityClient, RealityEventSource } from '@rootlodge/reality';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface StockPrice {
@@ -27,6 +27,7 @@ interface StockPrice {
  * Good for: Quick migration, testing, gradual rollout
  */
 export function useSSECompatStocks() {
+  const client = useRealityClient();
   const [stocks, setStocks] = useState<StockPrice[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -40,12 +41,10 @@ export function useSSECompatStocks() {
     try {
       // RealityEventSource is a drop-in replacement for EventSource
       // Same API, but uses short-lived HTTP internally
-      const options: EventSourceOptions = {
-        // Reality-specific options
-        realityServers: ['http://localhost:3000'],
-        syncInterval: 1000, // Check for updates every second
-      };
-      const es = new RealityEventSource('http://localhost:3000/api/stocks', options);
+      const es = new RealityEventSource('http://localhost:3000/api/stocks', client, {
+        realityKey: 'stocks:all',
+        staleTime: 1000,
+      });
       eventSourceRef.current = es;
 
       es.onopen = () => {
@@ -69,7 +68,7 @@ export function useSSECompatStocks() {
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to connect'));
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     connect();

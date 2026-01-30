@@ -12,7 +12,7 @@
  * 5. Built-in mesh coordination for multi-server setups
  */
 
-import { createRealityServer, createHash } from '@rootlodge/reality-server';
+import { createRealityServer } from '@rootlodge/reality-server';
 
 interface StockPrice {
   symbol: string;
@@ -26,6 +26,9 @@ const server = createRealityServer({
   serverId: `stock-server-${Date.now()}`,
 });
 
+// Get fetch handler
+const realityHandler = server.getFetchHandler('/reality');
+
 // Simulated stock data
 const stocks: Record<string, StockPrice> = {
   AAPL: { symbol: 'AAPL', price: 178.50, change: 0, timestamp: Date.now() },
@@ -33,6 +36,17 @@ const stocks: Record<string, StockPrice> = {
   MSFT: { symbol: 'MSFT', price: 378.90, change: 0, timestamp: Date.now() },
   AMZN: { symbol: 'AMZN', price: 178.35, change: 0, timestamp: Date.now() },
 };
+
+// Simple hash function
+function simpleHash(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 // Simulate price changes
 async function updatePrices(): Promise<void> {
@@ -49,12 +63,12 @@ async function updatePrices(): Promise<void> {
   for (const symbol of Object.keys(stocks)) {
     const stock = stocks[symbol];
     // Hash is based on price and timestamp to detect changes
-    const hash = createHash(`${stock.price}-${stock.timestamp}`);
+    const hash = simpleHash(`${stock.price}-${stock.timestamp}`);
     await server.updateNode(`stocks:${symbol}`, hash);
   }
   
   // Also update an "all stocks" aggregate node
-  const allHash = createHash(Object.values(stocks)
+  const allHash = simpleHash(Object.values(stocks)
     .map(s => `${s.symbol}:${s.price}`)
     .join('|'));
   await server.updateNode('stocks:all', allHash);
@@ -83,8 +97,8 @@ Bun.serve({
     }
     
     // Reality sync endpoint - handles all real-time coordination
-    if (url.pathname === '/reality/sync') {
-      const response = await server.handleRequest(request);
+    if (url.pathname.startsWith('/reality')) {
+      const response = await realityHandler(request);
       // Add CORS headers
       const headers = new Headers(response.headers);
       Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));

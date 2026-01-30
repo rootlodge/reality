@@ -18,7 +18,7 @@ export * from './types';
 export * from './utils';
 
 // Client
-export { RealityClient, createRealityClient } from './client/reality-client';
+export { RealityClient, createRealityClient, createRealityClient as createReality } from './client/reality-client';
 export { SyncEngine } from './client/sync-engine';
 
 // Transport abstraction
