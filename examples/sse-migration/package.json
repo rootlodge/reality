@@ -10,8 +10,8 @@
     "server:old": "bun run server-old-sse.ts"
   },
   "dependencies": {
-    "@rootlodge/reality": "workspace:*",
-    "@rootlodge/reality-server": "workspace:*",
+    "@rootlodge/reality": "file:../../packages/reality",
+    "@rootlodge/reality-server": "file:../../packages/reality-server",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

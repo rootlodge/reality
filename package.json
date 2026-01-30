@@ -1,0 +1,15 @@
+{
+  "name": "reality-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*",
+    "packages/*/examples/*"
+  ],
+  "scripts": {
+    "install:examples": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\.scripts\\install-examples.ps1",
+    "publish:examples": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\.scripts\\publish-examples.ps1",
+    "bump:examples": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\.scripts\\bump-examples.ps1"
+  }
+}
