@@ -1,0 +1,96 @@
+{
+  "name": "@rootlodge/reality-server",
+  "version": "1.0.0",
+  "description": "Socketless Real-Time Infrastructure - Server components with mesh awareness and storage adapters",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/storage/index.mjs",
+      "require": "./dist/storage/index.js",
+      "types": "./dist/storage/index.d.ts"
+    },
+    "./http": {
+      "import": "./dist/http/index.mjs",
+      "require": "./dist/http/index.js",
+      "types": "./dist/http/index.d.ts"
+    },
+    "./mesh": {
+      "import": "./dist/mesh/index.mjs",
+      "require": "./dist/mesh/index.js",
+      "types": "./dist/mesh/index.d.ts"
+    },
+    "./redis": {
+      "import": "./dist/redis/index.mjs",
+      "require": "./dist/redis/index.js",
+      "types": "./dist/redis/index.d.ts"
+    },
+    "./compat": {
+      "import": "./dist/compat/index.mjs",
+      "require": "./dist/compat/index.js",
+      "types": "./dist/compat/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "realtime",
+    "real-time",
+    "server",
+    "websocket-alternative",
+    "mesh",
+    "distributed",
+    "socketless",
+    "drizzle",
+    "prisma",
+    "dynamodb",
+    "redis"
+  ],
+  "author": "RootLodge / CollabHut",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rootlodge/reality.git"
+  },
+  "homepage": "https://github.com/rootlodge/reality#readme",
+  "bugs": {
+    "url": "https://github.com/rootlodge/reality/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@rootlodge/reality": "^1.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "sideEffects": false
+}
