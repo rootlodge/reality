@@ -2,27 +2,113 @@
  * @rootlodge/reality-server - Server Types
  * 
  * Type definitions for the Reality server.
+ * Shared types are duplicated here to avoid circular dependencies.
  */
 
 import { z } from 'zod';
-import type {
-  RealityNodeMeta,
-  SyncRequest,
-  SyncResponse,
-  PeerHealth,
-  RealityStorage,
-  DatabaseAdapter,
-} from '@rootlodge/reality';
 
-// Re-export client types used by server
-export type {
-  RealityNodeMeta,
-  SyncRequest,
-  SyncResponse,
-  PeerHealth,
-  RealityStorage,
-  DatabaseAdapter,
-};
+// ============================================================================
+// Shared Types (duplicated from @rootlodge/reality for independence)
+// ============================================================================
+
+export const RealityModeSchema = z.enum(['native', 'sse-compat', 'polling-compat']);
+export type RealityMode = z.infer<typeof RealityModeSchema>;
+
+export const SyncHintSchema = z.enum(['interaction', 'focus', 'idle', 'mutation', 'mount', 'reconnect']);
+export type SyncHint = z.infer<typeof SyncHintSchema>;
+
+export const RealityNodeMetaSchema = z.object({
+  key: z.string(),
+  version: z.number().int().nonnegative(),
+  hash: z.string(),
+  updatedAt: z.number().int(),
+});
+
+export type RealityNodeMeta = z.infer<typeof RealityNodeMetaSchema>;
+
+export const PeerHealthSchema = z.enum(['healthy', 'degraded', 'unhealthy', 'unknown']);
+export type PeerHealth = z.infer<typeof PeerHealthSchema>;
+
+export const PeerSummarySchema = z.object({
+  peer: z.string().url(),
+  maxVersionSeen: z.number().int().nonnegative(),
+  lastSeen: z.number().int(),
+  health: PeerHealthSchema.optional(),
+});
+
+export type PeerSummary = z.infer<typeof PeerSummarySchema>;
+
+export const SyncRequestSchema = z.object({
+  known: z.record(z.string(), z.number().int().nonnegative()),
+  clientId: z.string().uuid(),
+  mode: RealityModeSchema,
+  hint: SyncHintSchema,
+  timestamp: z.number().int().optional(),
+});
+
+export type SyncRequest = z.infer<typeof SyncRequestSchema>;
+
+export const ChangedNodeSchema = z.object({
+  version: z.number().int().nonnegative(),
+  hash: z.string(),
+  source: z.string().optional(),
+  payload: z.unknown().optional(),
+});
+
+export type ChangedNode = z.infer<typeof ChangedNodeSchema>;
+
+export const MeshInfoSchema = z.object({
+  peers: z.record(z.string(), PeerHealthSchema),
+  serverVersion: z.number().int().nonnegative().optional(),
+});
+
+export type MeshInfo = z.infer<typeof MeshInfoSchema>;
+
+export const SyncResponseSchema = z.object({
+  changed: z.record(z.string(), ChangedNodeSchema),
+  mesh: MeshInfoSchema,
+  serverTime: z.number().int(),
+});
+
+export type SyncResponse = z.infer<typeof SyncResponseSchema>;
+
+// ============================================================================
+// Storage Interface
+// ============================================================================
+
+export interface RealityStorage {
+  /** Get metadata for a node */
+  getNode(key: string): Promise<RealityNodeMeta | null>;
+  /** Set metadata for a node */
+  setNode(meta: RealityNodeMeta): Promise<void>;
+  /** Increment version and update hash */
+  incrementVersion(key: string, hash: string): Promise<RealityNodeMeta>;
+  /** List nodes changed since a given version */
+  listChangedSince(version: number): Promise<RealityNodeMeta[]>;
+  /** Get multiple nodes by keys */
+  getNodes(keys: string[]): Promise<Map<string, RealityNodeMeta>>;
+  /** Get current max version across all nodes */
+  getMaxVersion(): Promise<number>;
+  /** Delete a node */
+  deleteNode(key: string): Promise<void>;
+  /** Health check */
+  isHealthy(): Promise<boolean>;
+}
+
+// ============================================================================
+// Database Adapter Interface
+// ============================================================================
+
+export interface DatabaseAdapter {
+  /** Fetch payload for a key */
+  fetchPayload<T = unknown>(key: string): Promise<T | null>;
+  /** Store payload for a key */
+  storePayload<T = unknown>(key: string, payload: T): Promise<void>;
+  /** Delete payload */
+  deletePayload(key: string): Promise<void>;
+  /** Batch fetch payloads */
+  fetchPayloads<T = unknown>(keys: string[]): Promise<Map<string, T>>;
+}
 
 // ============================================================================
 // Server Configuration
