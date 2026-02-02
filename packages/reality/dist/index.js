@@ -110,10 +110,11 @@ var EventStore = class {
 };
 
 // src/core/filter.ts
-var import_bloom_filters = require("bloom-filters");
+var import_bloom_filters = __toESM(require("bloom-filters"));
+var { BloomFilter } = import_bloom_filters.default;
 var BloomRealityFilter = class _BloomRealityFilter {
   constructor(size = 1e3, errorRate = 0.01) {
-    this.filter = import_bloom_filters.BloomFilter.create(size, errorRate);
+    this.filter = BloomFilter.create(size, errorRate);
   }
   add(id) {
     this.filter.add(id);
@@ -128,7 +129,7 @@ var BloomRealityFilter = class _BloomRealityFilter {
   static from(serialized) {
     const instance = new _BloomRealityFilter();
     const json = JSON.parse(serialized);
-    instance.filter = import_bloom_filters.BloomFilter.fromJSON(json);
+    instance.filter = BloomFilter.fromJSON(json);
     return instance;
   }
   merge(other) {

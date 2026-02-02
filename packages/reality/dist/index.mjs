@@ -69,7 +69,8 @@ var EventStore = class {
 };
 
 // src/core/filter.ts
-import { BloomFilter } from "bloom-filters";
+import pkg from "bloom-filters";
+var { BloomFilter } = pkg;
 var BloomRealityFilter = class _BloomRealityFilter {
   constructor(size = 1e3, errorRate = 0.01) {
     this.filter = BloomFilter.create(size, errorRate);

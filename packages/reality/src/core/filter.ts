@@ -1,4 +1,6 @@
-import { BloomFilter } from 'bloom-filters';
+import pkg from 'bloom-filters';
+import type { BloomFilter as BloomFilterType } from 'bloom-filters';
+const { BloomFilter } = pkg;
 import { RealityFilter } from './event';
 
 /**
@@ -25,7 +27,7 @@ import { RealityFilter } from './event';
  * For Reality 2.0 MVP, we use standard Bloom Filter with conservative sizing.
  */
 export class BloomRealityFilter implements RealityFilter {
-  private filter: BloomFilter;
+  private filter: BloomFilterType;
 
   constructor(size = 1000, errorRate = 0.01) {
     // Estimate: m = ceil((n * log(p)) / log(1 / (pow(2, log(2)))));
