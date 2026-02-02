@@ -350,8 +350,8 @@ export class SyncEngine {
 
       const currentVersion = this.known.get(key) ?? 0;
       
-      // Only update if version is newer
-      if (change.version > currentVersion) {
+      // Update if version is different (handle upgrades and resets)
+      if (change.version !== currentVersion) {
         this.known.set(key, change.version);
         
         const oldMeta = node.meta;

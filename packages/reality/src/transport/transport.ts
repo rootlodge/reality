@@ -111,6 +111,7 @@ export class HttpTransport implements RealityTransport {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      cache: 'no-store',
       body: JSON.stringify(request),
     });
 

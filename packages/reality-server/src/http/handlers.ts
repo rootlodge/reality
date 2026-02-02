@@ -98,8 +98,9 @@ export async function handleSync(
         continue;
       }
 
-      // Check if client has stale version
-      if (meta.version > clientVersion) {
+      // Check if client has different version (newer OR older)
+      // This handles both updates and server resets (where client > server)
+      if (meta.version !== clientVersion) {
         const changedNode: ChangedNode = {
           version: meta.version,
           hash: meta.hash,
