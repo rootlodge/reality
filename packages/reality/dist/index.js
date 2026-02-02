@@ -1,3 +1,44 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/index.ts
+var src_exports = {};
+__export(src_exports, {
+  BloomRealityFilter: () => BloomRealityFilter,
+  EventStore: () => EventStore,
+  HttpTransport: () => HttpTransport,
+  RealityClient: () => RealityClient,
+  RealityEventSchema: () => RealityEventSchema,
+  createRealityClient: () => createRealityClient
+});
+module.exports = __toCommonJS(src_exports);
+
 // src/core/store.ts
 var EventStore = class {
   constructor(options = {}) {
@@ -69,10 +110,10 @@ var EventStore = class {
 };
 
 // src/core/filter.ts
-import { BloomFilter } from "bloom-filters";
+var import_bloom_filters = require("bloom-filters");
 var BloomRealityFilter = class _BloomRealityFilter {
   constructor(size = 1e3, errorRate = 0.01) {
-    this.filter = BloomFilter.create(size, errorRate);
+    this.filter = import_bloom_filters.BloomFilter.create(size, errorRate);
   }
   add(id) {
     this.filter.add(id);
@@ -87,7 +128,7 @@ var BloomRealityFilter = class _BloomRealityFilter {
   static from(serialized) {
     const instance = new _BloomRealityFilter();
     const json = JSON.parse(serialized);
-    instance.filter = BloomFilter.fromJSON(json);
+    instance.filter = import_bloom_filters.BloomFilter.fromJSON(json);
     return instance;
   }
   merge(other) {
@@ -128,16 +169,16 @@ var HttpTransport = class {
 };
 
 // src/client/createClient.ts
-import { nanoid } from "nanoid";
-import EventEmitter from "eventemitter3";
-var RealityClient = class extends EventEmitter {
+var import_nanoid = require("nanoid");
+var import_eventemitter3 = __toESM(require("eventemitter3"));
+var RealityClient = class extends import_eventemitter3.default {
   constructor(options = {}) {
     super();
     this.transports = [];
     this.isSyncing = false;
     this.store = new EventStore();
     this.filter = new BloomRealityFilter();
-    this.clientId = nanoid();
+    this.clientId = (0, import_nanoid.nanoid)();
     if (options.transport) {
       this.transports.push(options.transport);
     } else if (options.peers) {
@@ -154,7 +195,7 @@ var RealityClient = class extends EventEmitter {
    */
   publish(topic, payload) {
     const event = {
-      id: nanoid(),
+      id: (0, import_nanoid.nanoid)(),
       topic,
       payload,
       timestamp: Date.now(),
@@ -226,20 +267,21 @@ function createRealityClient(options) {
 }
 
 // src/core/event.ts
-import { z } from "zod";
-var RealityEventSchema = z.object({
-  id: z.string(),
-  topic: z.string(),
-  payload: z.unknown(),
-  timestamp: z.number(),
-  origin: z.string()
+var import_zod = require("zod");
+var RealityEventSchema = import_zod.z.object({
+  id: import_zod.z.string(),
+  topic: import_zod.z.string(),
+  payload: import_zod.z.unknown(),
+  timestamp: import_zod.z.number(),
+  origin: import_zod.z.string()
 });
-export {
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
   BloomRealityFilter,
   EventStore,
   HttpTransport,
   RealityClient,
   RealityEventSchema,
   createRealityClient
-};
-//# sourceMappingURL=index.mjs.map
+});
+//# sourceMappingURL=index.js.map

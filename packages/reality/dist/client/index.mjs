@@ -2327,9 +2327,7 @@ var RealityClient = class extends EventEmitter {
       this.transports.push(options.transport);
     } else if (options.peers) {
       this.transports = options.peers.map((p) => {
-        const baseUrl = p.endsWith("/") ? p.slice(0, -1) : p;
-        const realityUrl = baseUrl.includes("__reality") ? baseUrl : `${baseUrl}/__reality`;
-        return new HttpTransport(realityUrl);
+        return new HttpTransport(p);
       });
     }
     if (options.autoSync !== false) {
