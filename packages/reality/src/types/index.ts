@@ -18,7 +18,7 @@ export type RealityMode = z.infer<typeof RealityModeSchema>;
 // Sync Hints
 // ============================================================================
 
-export const SyncHintSchema = z.enum(['interaction', 'focus', 'idle', 'mutation', 'mount', 'reconnect']);
+export const SyncHintSchema = z.enum(['interaction', 'focus', 'idle', 'mutation', 'mount', 'reconnect', 'poll']);
 export type SyncHint = z.infer<typeof SyncHintSchema>;
 
 // ============================================================================
@@ -60,6 +60,7 @@ export const SyncRequestSchema = z.object({
   mode: RealityModeSchema,
   hint: SyncHintSchema,
   timestamp: z.number().int().optional(),
+  wait: z.number().int().optional(),
 });
 
 export type SyncRequest = z.infer<typeof SyncRequestSchema>;

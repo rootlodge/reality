@@ -44,6 +44,7 @@ export const SyncRequestSchema = z.object({
   mode: RealityModeSchema,
   hint: SyncHintSchema,
   timestamp: z.number().int().optional(),
+  wait: z.number().int().optional(), // Timeout in ms for long polling
 });
 
 export type SyncRequest = z.infer<typeof SyncRequestSchema>;

@@ -24,6 +24,10 @@ import { RedisAccelerator } from './redis/accelerator';
 import { createFetchHandler } from './http/fetch';
 import type { HandlerDeps } from './http/handlers';
 
+import { EventEmitter } from 'events';
+
+
+
 /**
  * Reality Server options after resolution
  */
@@ -102,6 +106,7 @@ export class RealityServer {
       version: '1.0.0',
       startTime: this.components.startTime,
       debug: resolvedConfig.debug,
+      events: new EventEmitter(),
     };
   }
 

@@ -20,6 +20,8 @@ import { SyncRequestSchema, InvalidationRequestSchema } from '../types';
 import { MeshCoordinator } from '../mesh/coordinator';
 import { RedisAccelerator } from '../redis/accelerator';
 
+import { EventEmitter } from 'events';
+
 /**
  * Handler dependencies
  */
@@ -31,6 +33,8 @@ export interface HandlerDeps {
   version: string;
   startTime: number;
   debug?: boolean;
+  /** Internal event bus for long polling */
+  events: EventEmitter;
   /** Optional: Fetch payload for a key */
   payloadFetcher?: (key: string) => Promise<unknown>;
 }
@@ -125,6 +129,56 @@ export async function handleSync(
       }
     }
 
+    // Check for changes
+    let hasChanges = Object.keys(changed).length > 0;
+    
+    // If no changes and client requested wait, suspend!
+    if (!hasChanges && syncRequest.wait && syncRequest.wait > 0) {
+       const waitTime = Math.min(syncRequest.wait, 29000); // Cap at 29s to avoid gateway timeouts
+       
+       await new Promise<void>((resolve) => {
+         const timeout = setTimeout(() => {
+           deps.events.off('invalidation', listener);
+           resolve();
+         }, waitTime);
+
+         const listener = (invalidatedKeys: string[]) => {
+           // Check if any invalidated key is in our known list
+           const relevant = invalidatedKeys.some(k => syncRequest.known.hasOwnProperty(k));
+           if (relevant) {
+             clearTimeout(timeout);
+             deps.events.off('invalidation', listener);
+             resolve();
+           }
+         };
+         
+         deps.events.on('invalidation', listener);
+       });
+       
+       // Re-check after wait
+       const freshMetas = await storage.getNodes(keys);
+       for (const [key, clientVersion] of Object.entries(syncRequest.known)) {
+          const meta = freshMetas.get(key);
+          if (!meta) continue; // Deleted handled above (or ignored for now)
+          
+          if (meta.version !== clientVersion) {
+              const changedNode: ChangedNode = {
+                version: meta.version,
+                hash: meta.hash,
+                source: deps.serverId,
+              };
+              // Add payload if possible
+              if (payloadFetcher) {
+                try {
+                   const payload = await payloadFetcher(key);
+                   if (JSON.stringify(payload).length < 1024) changedNode.payload = payload;
+                } catch {}
+              }
+              changed[key] = changedNode;
+          }
+       }
+    }
+
     // Update mesh max version
     const maxVersion = await storage.getMaxVersion();
     mesh.updateMaxVersion(maxVersion);
@@ -201,6 +255,9 @@ export async function handleInvalidation(
       invalidated,
       versions,
     };
+
+    // Wake up long-polling clients
+    deps.events.emit('invalidation', keys);
 
     return jsonResponse(response, 200, {
       'X-Reality-Gossip': JSON.stringify(mesh.createGossipPayload()),
@@ -336,6 +393,9 @@ export async function handleNodeUpdate(
 
     // Propagate to peers
     mesh.propagateInvalidation([key]);
+
+    // Wake up long-polling clients
+    deps.events.emit('invalidation', [key]);
 
     return jsonResponse({
       key: meta.key,

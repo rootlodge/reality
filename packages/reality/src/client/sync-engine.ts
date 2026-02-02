@@ -305,6 +305,7 @@ export class SyncEngine {
         mode: this.config.mode,
         hint,
         timestamp: now(),
+        wait: hint === 'poll' ? 25000 : undefined,
       };
 
       const response = await this.config.transport.sync(request);
