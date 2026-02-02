@@ -1,0 +1,49 @@
+{
+  "name": "@rootlodge/reality",
+  "version": "2.0.0",
+  "description": "Reality 2.0: Event-Set Gossip with Probabilistic Awareness",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.mjs",
+      "require": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/client/react.mjs",
+      "require": "./dist/client/react.js",
+      "types": "./dist/client/react.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "nanoid": "^5.0.4",
+    "bloom-filters": "^3.0.1",
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1",
+    "@types/node": "^20.11.16",
+    "@types/react": "^18.2.55",
+    "react": "^18.2.0"
+  }
+}
